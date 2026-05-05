@@ -109,7 +109,6 @@
     <string name="performance">Performa</string>
     <string name="gpu">GPU/Renderer</string>
     <string name="ram">RAM</string>
-    <string name="gaming">Gaming</string>
     <string name="battery">Baterai</string>
     <string name="network">Jaringan</string>
     <string name="thermal_cat">Thermal</string>
