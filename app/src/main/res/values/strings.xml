@@ -51,7 +51,7 @@
     <string name="cpu_governor_desc">Ubah CPU governor untuk performa maksimal</string>
     <string name="freq_lock">Max CPU/GPU Frequency Lock</string>
     <string name="freq_lock_desc">Lock frequency ke nilai maksimum</string>
-    <string name="disable_blur">Disable Blur & Effects</string>
+    <string name="disable_blur">Disable Blur &amp; Effects</string>
     <string name="disable_blur_desc">Nonaktifkan blur, transparency, dan window effects</string>
     <string name="app_launch">Boost App Launch</string>
     <string name="app_launch_desc">Disable logging dan tracking untuk launch cepat</string>
@@ -79,7 +79,7 @@
     <string name="io_readahead_desc">Optimasi read ahead buffer storage</string>
     <string name="disable_bloat">Disable MIUI/HyperOS Bloat</string>
     <string name="disable_bloat_desc">Nonaktifkan iklan, recommendation, analytics</string>
-    <string name="backup_restore">Backup & Restore</string>
+    <string name="backup_restore">Backup &amp; Restore</string>
     <string name="backup_restore_desc">Simpan dan pulihkan semua pengaturan</string>
     <string name="profile_manager">Profile Manager</string>
     <string name="profile_manager_desc">Balanced, Extreme FPS, Battery Saver, Custom</string>
