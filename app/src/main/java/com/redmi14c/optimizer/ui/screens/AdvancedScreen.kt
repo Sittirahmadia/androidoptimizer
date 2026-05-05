@@ -243,7 +243,7 @@ fun SystemInfoCard(modifier: Modifier = Modifier) {
             InfoRow(label = "OS", value = "Android 14 / HyperOS")
             InfoRow(label = "RAM", value = "4GB/6GB/8GB LPDDR4X")
             InfoRow(label = "Storage", value = "64GB/128GB eMMC 5.1")
-            InfoRow(label = "Display", value = "6.88" 120Hz LCD")
+            InfoRow(label = "Display", value = "6.88\" 120Hz LCD")
             InfoRow(label = "Battery", value = "5160mAh")
         }
     }
