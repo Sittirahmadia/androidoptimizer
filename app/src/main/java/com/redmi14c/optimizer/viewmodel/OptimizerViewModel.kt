@@ -9,6 +9,19 @@ import com.redmi14c.optimizer.shizuku.ShellResult
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
+// SEALED CLASSES - MUST be defined BEFORE ViewModel class
+sealed class ShizukuStatus {
+    object NOT_RUNNING : ShizukuStatus()
+    object NO_PERMISSION : ShizukuStatus()
+    object CONNECTED : ShizukuStatus()
+}
+
+sealed class ApplyResult {
+    data class Success(val message: String) : ApplyResult()
+    data class PartialSuccess(val message: String, val errors: List<String>) : ApplyResult()
+    data class Error(val message: String) : ApplyResult()
+}
+
 class OptimizerViewModel(application: Application) : AndroidViewModel(application) {
 
     private val dataStore = TweakDataStore(application)
@@ -304,16 +317,4 @@ class OptimizerViewModel(application: Application) : AndroidViewModel(applicatio
     fun clearApplyResult() {
         _applyResult.value = null
     }
-}
-
-sealed class ShizukuStatus {
-    object NOT_RUNNING : ShizukuStatus()
-    object NO_PERMISSION : ShizukuStatus()
-    object CONNECTED : ShizukuStatus()
-}
-
-sealed class ApplyResult {
-    data class Success(val message: String) : ApplyResult()
-    data class PartialSuccess(val message: String, val errors: List<String>) : ApplyResult()
-    data class Error(val message: String) : ApplyResult()
 }
