@@ -21,7 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.redmi14c.optimizer.data.OptimizerString
-import com.redmi14c.optimizer.data.OptimizerStringsDatabase
+import com.redmi14c.optimizer.data.NonRootOptimizerStrings
 import com.redmi14c.optimizer.shizuku.ShizukuManager
 import com.redmi14c.optimizer.ui.components.SectionHeader
 import com.redmi14c.optimizer.ui.components.StatusChip
@@ -29,6 +29,7 @@ import com.redmi14c.optimizer.ui.theme.*
 import com.redmi14c.optimizer.viewmodel.OptimizerViewModel
 import com.redmi14c.optimizer.viewmodel.ShizukuStatus
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,16 +48,26 @@ fun OptimizerStringsScreen(
     var selectedString by remember { mutableStateOf<OptimizerString?>(null) }
     var applyResult by remember { mutableStateOf("") }
 
-    val categories = listOf("All") + OptimizerStringsDatabase.getCategories()
+    val categories = try {
+        listOf("All") + NonRootOptimizerStrings.getCategories()
+    } catch (e: Exception) {
+        Timber.e(e, "Error loading categories")
+        listOf("All")
+    }
 
-    val filteredStrings = remember(searchQuery, selectedCategory) {
-        if (searchQuery.isEmpty() && selectedCategory == "All") {
-            OptimizerStringsDatabase.ALL_STRINGS
-        } else if (searchQuery.isNotEmpty()) {
-            OptimizerStringsDatabase.search(searchQuery)
-        } else {
-            OptimizerStringsDatabase.getByCategory(selectedCategory)
+    val filteredStrings = try {
+        remember(searchQuery, selectedCategory) {
+            if (searchQuery.isEmpty() && selectedCategory == "All") {
+                NonRootOptimizerStrings.ALL_STRINGS
+            } else if (searchQuery.isNotEmpty()) {
+                NonRootOptimizerStrings.search(searchQuery)
+            } else {
+                NonRootOptimizerStrings.getByCategory(selectedCategory)
+            }
         }
+    } catch (e: Exception) {
+        Timber.e(e, "Error filtering strings")
+        emptyList()
     }
 
     LaunchedEffect(Unit) {
