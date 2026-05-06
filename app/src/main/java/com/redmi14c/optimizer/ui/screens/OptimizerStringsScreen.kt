@@ -126,7 +126,7 @@ fun OptimizerStringsScreen(
                     OptimizerStringCard(
                         string = string,
                         onCopy = {
-                            val text = string.command
+                            val text = string.command ?: "${string.key}=${string.value}"
                             clipboardManager.setText(AnnotatedString(text))
                         },
                         onApply = {
@@ -181,7 +181,8 @@ fun OptimizerStringsScreen(
                     onClick = {
                         scope.launch {
                             if (shizukuStatus == ShizukuStatus.CONNECTED) {
-                                val result = ShizukuManager.executeCommand(selectedString!!.command)
+                                val cmd = selectedString!!.command ?: "setprop ${selectedString!!.key} ${selectedString!!.value}"
+                                val result = ShizukuManager.executeCommand(cmd)
                                 applyResult = if (result.success) "Success!" else "Failed: ${result.error}"
                             } else {
                                 applyResult = "Shizuku not connected!"
@@ -300,13 +301,13 @@ fun OptimizerStringCard(
                     icon = "📁"
                 )
                 StatusChip(
-                    text = string.fpsEstimate,
+                    text = "${string.fpsBoost} FPS",
                     color = SuccessGreen,
                     icon = "▲"
                 )
                 StatusChip(
-                    text = string.batteryImpact,
-                    color = if (string.batteryImpact.contains("+")) SuccessGreen else WarningYellow,
+                    text = "${string.batteryImpact}%",
+                    color = if (string.batteryImpact >= 0) SuccessGreen else WarningYellow,
                     icon = "🔋"
                 )
                 StatusChip(
