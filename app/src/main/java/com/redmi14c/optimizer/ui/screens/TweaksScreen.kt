@@ -10,7 +10,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.redmi14c.optimizer.data.TweakCommand
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -62,7 +65,7 @@ fun TweaksScreen(
     var showCommandsDialog by remember { mutableStateOf(false) }
     var selectedTweakId by remember { mutableStateOf("") }
     var showWarningDialog by remember { mutableStateOf(false) }
-    var warningTweak by remember { mutableStateOf<TweakCommands.TweakCommand?>(null) }
+    var warningTweak by remember { mutableStateOf<TweakCommand?>(null) }
     var pendingToggle by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     LaunchedEffect(Unit) {

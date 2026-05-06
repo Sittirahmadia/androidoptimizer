@@ -65,7 +65,7 @@ object ShizukuManager {
                 arrayOf("sh", "-c", command),
                 null,
                 null
-            ) as rikka.shizuku.ShizukuRemoteProcess
+            )
 
             val output = StringBuilder()
             val error = StringBuilder()
