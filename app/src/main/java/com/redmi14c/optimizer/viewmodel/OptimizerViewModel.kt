@@ -31,7 +31,7 @@ class OptimizerViewModel(application: Application) : AndroidViewModel(applicatio
     private val backupDao = database.backupDao()
 
     // Shizuku Status
-    private val _shizukuStatus = MutableStateFlow(ShizukuStatus.NOT_RUNNING)
+    private val _shizukuStatus = MutableStateFlow<ShizukuStatus>(ShizukuStatus.NOT_RUNNING)
     val shizukuStatus: StateFlow<ShizukuStatus> = _shizukuStatus.asStateFlow()
 
     // Active Tweaks Count

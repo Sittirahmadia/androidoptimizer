@@ -1,671 +1,1441 @@
 package com.redmi14c.optimizer.data
 
+import androidx.room.Dao
+import androidx.room.Database
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+import androidx.room.Query
+import androidx.room.RoomDatabase
+import kotlinx.coroutines.flow.Flow
+
+@Entity(tableName = "optimizer_strings")
 data class OptimizerString(
-    val id: Int,
+    @PrimaryKey(autoGenerate = true)
+    val id: Int = 0,
     val name: String,
     val key: String,
     val value: String,
-    val type: String, // global, system, secure
+    val type: String, // "prop", "setting", "sysctl", "command"
     val description: String,
     val category: String,
-    val fpsEstimate: String,
-    val batteryImpact: String,
-    val riskLevel: String,
-    val command: String
+    val fpsBoost: Int = 0, // 0-50 FPS improvement estimate
+    val batteryImpact: Int = 0, // -100 to 100, negative = saves battery
+    val riskLevel: String = "Low", // Low, Medium, High
+    val command: String? = null // Shell command to execute
 )
 
-object OptimizerStringsDatabase {
-
-    val ALL_STRINGS = listOf(
-        // === PERFORMANCE (1-15) ===
-        OptimizerString(1, "Window Animation Scale", "window_animation_scale", "0.0", "global", 
-            "Mengurangi atau menonaktifkan animasi window untuk respons yang lebih cepat", "Performance", 
-            "+Responsiveness", "+5%", "Low", "settings put global window_animation_scale 0.0"),
-
-        OptimizerString(2, "Transition Animation Scale", "transition_animation_scale", "0.0", "global",
-            "Mengurangi animasi transisi antar activity", "Performance",
-            "+Responsiveness", "+5%", "Low", "settings put global transition_animation_scale 0.0"),
-
-        OptimizerString(3, "Animator Duration Scale", "animator_duration_scale", "0.0", "global",
-            "Mengurangi durasi animator untuk performa maksimal", "Performance",
-            "+Responsiveness", "+5%", "Low", "settings put global animator_duration_scale 0.0"),
-
-        OptimizerString(4, "Disable Background Process Limit", "background_process_limit", "0", "global",
-            "Membatasi background process untuk menghemat RAM", "Performance",
-            "+5-10 FPS", "+5%", "Low", "settings put global background_process_limit 0"),
-
-        OptimizerString(5, "Cached Apps Freezer", "cached_apps_freezer", "enabled", "global",
-            "Membekukan aplikasi yang di-cache untuk menghemat RAM", "Performance",
-            "+RAM", "+5%", "Low", "settings put global cached_apps_freezer enabled"),
-
-        OptimizerString(6, "Force High Refresh Rate", "peak_refresh_rate", "120", "system",
-            "Memaksa refresh rate maksimum 120Hz", "Performance",
-            "+Smoothness", "-10%", "Medium", "settings put system peak_refresh_rate 120"),
-
-        OptimizerString(7, "Min Refresh Rate Lock", "min_refresh_rate", "120", "system",
-            "Mengunci minimum refresh rate ke 120Hz", "Performance",
-            "+Smoothness", "-10%", "Medium", "settings put system min_refresh_rate 120"),
-
-        OptimizerString(8, "Disable HWUI Debug Info", "debug.hwui.disable_draw_defer", "true", "global",
-            "Menonaktifkan deferred drawing untuk rendering langsung", "Performance",
-            "+3-8 FPS", "-3%", "Low", "setprop debug.hwui.disable_draw_defer true"),
-
-        OptimizerString(9, "Disable Dirty Region Debug", "debug.hwui.show_dirty_regions", "false", "global",
-            "Menonaktifkan tampilan dirty regions untuk performa", "Performance",
-            "+2-5 FPS", "Neutral", "Low", "setprop debug.hwui.show_dirty_regions false"),
-
-        OptimizerString(10, "Disable Buffer Age", "debug.hwui.use_buffer_age", "false", "global",
-            "Menonaktifkan buffer age untuk rendering lebih cepat", "Performance",
-            "+2-5 FPS", "-2%", "Low", "setprop debug.hwui.use_buffer_age false"),
-
-        OptimizerString(11, "Disable VSync", "hwui.disable_vsync", "true", "global",
-            "Menonaktifkan VSync untuk rendering tanpa batasan refresh", "Performance",
-            "+5-10 FPS", "-5%", "High", "settings put global hwui.disable_vsync true"),
-
-        OptimizerString(12, "Force GPU Rendering", "debug.hwui.renderer", "skiavk", "global",
-            "Memaksa rendering menggunakan GPU dengan Vulkan/Skia", "Performance",
-            "+5-15 FPS", "-5%", "Medium", "setprop debug.hwui.renderer skiavk"),
-
-        OptimizerString(13, "Disable App Verification", "verifier_verify_adb_installs", "0", "global",
-            "Menonaktifkan verifikasi install ADB untuk kecepatan", "Performance",
-            "+Install Speed", "Neutral", "Low", "settings put global verifier_verify_adb_installs 0"),
-
-        OptimizerString(14, "Disable Package Stats", "sys_vm_stats", "0", "global",
-            "Menonaktifkan statistik VM untuk mengurangi overhead", "Performance",
-            "+2-3 FPS", "+2%", "Low", "settings put global sys_vm_stats 0"),
-
-        OptimizerString(15, "Disable Strict Mode", "show_strict_mode", "0", "global",
-            "Menonaktifkan strict mode untuk performa lebih baik", "Performance",
-            "+2-3 FPS", "Neutral", "Low", "settings put global show_strict_mode 0"),
-
-        // === GPU/RENDERER (16-30) ===
-        OptimizerString(16, "Vulkan Renderer", "debug.hwui.renderer", "skiavk", "global",
-            "Menggunakan renderer Vulkan untuk performa GPU terbaik", "GPU/Renderer",
-            "+10-20 FPS", "-5%", "Medium", "setprop debug.hwui.renderer skiavk"),
-
-        OptimizerString(17, "OpenGL ES 3.0 Renderer", "debug.hwui.renderer", "opengl", "global",
-            "Menggunakan renderer OpenGL ES 3.0", "GPU/Renderer",
-            "+5-10 FPS", "-3%", "Low", "setprop debug.hwui.renderer opengl"),
-
-        OptimizerString(18, "SkiaGL Renderer", "debug.hwui.renderer", "skiagl", "global",
-            "Menggunakan renderer SkiaGL untuk kompatibilitas", "GPU/Renderer",
-            "+3-5 FPS", "-2%", "Low", "setprop debug.hwui.renderer skiagl"),
-
-        OptimizerString(19, "Enable Vulkan", "debug.hwui.use_vulkan", "true", "global",
-            "Mengaktifkan backend Vulkan untuk rendering", "GPU/Renderer",
-            "+8-15 FPS", "-5%", "Medium", "setprop debug.hwui.use_vulkan true"),
-
-        OptimizerString(20, "Disable Vulkan", "debug.hwui.use_vulkan", "false", "global",
-            "Menonaktifkan Vulkan dan menggunakan OpenGL", "GPU/Renderer",
-            "Stable", "Neutral", "Low", "setprop debug.hwui.use_vulkan false"),
-
-        OptimizerString(21, "Force 4x MSAA", "debug.hwui.disable_draw_defer", "true", "global",
-            "Memaksa 4x MSAA untuk kualitas visual lebih baik", "GPU/Renderer",
-            "+Quality", "-10%", "Medium", "setprop debug.hwui.disable_draw_defer true"),
-
-        OptimizerString(22, "Disable GPU Overdraw Debug", "debug.hwui.show_overdraw", "false", "global",
-            "Menonaktifkan tampilan overdraw untuk performa", "GPU/Renderer",
-            "+2-3 FPS", "Neutral", "Low", "setprop debug.hwui.show_overdraw false"),
-
-        OptimizerString(23, "GPU Turbo Clock", "gpuclk", "max", "system",
-            "Mengunci GPU clock ke frekuensi maksimum", "GPU/Renderer",
-            "+10-20 FPS", "-20%", "Extreme", "cat /sys/class/kgsl/kgsl-3d0/max_gpuclk > /sys/class/kgsl/kgsl-3d0/gpuclk"),
-
-        OptimizerString(24, "Disable GPU Throttling", "throttling", "0", "system",
-            "Menonaktifkan throttling GPU untuk performa maksimal", "GPU/Renderer",
-            "+15-25 FPS", "-25%", "Extreme", "echo 0 > /sys/class/kgsl/kgsl-3d0/throttling"),
-
-        OptimizerString(25, "Force GPU Clock On", "force_clk_on", "1", "system",
-            "Memaksa GPU clock selalu aktif", "GPU/Renderer",
-            "+8-15 FPS", "-15%", "High", "echo 1 > /sys/class/kgsl/kgsl-3d0/force_clk_on"),
-
-        OptimizerString(26, "Disable GPU Bus Split", "bus_split", "0", "system",
-            "Menonaktifkan bus split untuk bandwidth penuh", "GPU/Renderer",
-            "+5-10 FPS", "-5%", "Medium", "echo 0 > /sys/class/kgsl/kgsl-3d0/bus_split"),
-
-        OptimizerString(27, "Force GPU Rail On", "force_rail_on", "1", "system",
-            "Memaksa power rail GPU selalu aktif", "GPU/Renderer",
-            "+3-5 FPS", "-8%", "Medium", "echo 1 > /sys/class/kgsl/kgsl-3d0/force_rail_on"),
-
-        OptimizerString(28, "Disable GPU No-Nap", "force_no_nap", "1", "system",
-            "Mencegah GPU masuk mode tidur", "GPU/Renderer",
-            "+5-10 FPS", "-10%", "High", "echo 1 > /sys/class/kgsl/kgsl-3d0/force_no_nap"),
-
-        OptimizerString(29, "Enable Hardware Acceleration", "hardware_accelerated_rendering_enabled", "1", "global",
-            "Mengaktifkan hardware acceleration untuk semua aplikasi", "GPU/Renderer",
-            "+3-8 FPS", "-3%", "Low", "settings put global hardware_accelerated_rendering_enabled 1"),
-
-        OptimizerString(30, "Disable HW Accel Override", "hwui.disable_hw_accel", "0", "global",
-            "Memastikan hardware acceleration tidak dinonaktifkan", "GPU/Renderer",
-            "+3-5 FPS", "Neutral", "Low", "settings put global hwui.disable_hw_accel 0"),
-
-        // === RAM (31-45) ===
-        OptimizerString(31, "Disable RAM Expansion", "ram_expand_size", "0", "global",
-            "Menonaktifkan virtual RAM untuk performa native RAM", "RAM",
-            "+5-10 FPS", "Neutral", "Low", "settings put global ram_expand_size 0"),
-
-        OptimizerString(32, "Aggressive Swappiness", "swappiness", "100", "system",
-            "Meningkatkan agresivitas swap untuk RAM lebih bebas", "RAM",
-            "+RAM", "-3%", "Low", "echo 100 > /proc/sys/vm/swappiness"),
-
-        OptimizerString(33, "Reduce Dirty Ratio", "dirty_ratio", "10", "system",
-            "Mengurangi dirty ratio untuk write lebih cepat", "RAM",
-            "+I/O Speed", "Neutral", "Low", "echo 10 > /proc/sys/vm/dirty_ratio"),
-
-        OptimizerString(34, "Reduce Dirty Background", "dirty_background_ratio", "5", "system",
-            "Mengurangi background dirty ratio", "RAM",
-            "+I/O Speed", "Neutral", "Low", "echo 5 > /proc/sys/vm/dirty_background_ratio"),
-
-        OptimizerString(35, "Disable Page Cluster", "page-cluster", "0", "system",
-            "Menonaktifkan page cluster untuk swap lebih efisien", "RAM",
-            "+RAM", "-2%", "Low", "echo 0 > /proc/sys/vm/page-cluster"),
-
-        OptimizerString(36, "ZRAM Size 4GB", "disksize", "4294967296", "system",
-            "Mengatur ZRAM ke 4GB untuk kompresi RAM", "RAM",
-            "+RAM", "-3%", "Low", "echo 4294967296 > /sys/block/zram0/disksize"),
-
-        OptimizerString(37, "Kill All Background", "kill-all", "", "system",
-            "Mematikan semua proses background", "RAM",
-            "+10-15 FPS", "Neutral", "Low", "am kill-all"),
-
-        OptimizerString(38, "Memory Factor Critical", "memory-factor", "critical", "system",
-            "Mengatur memory factor ke critical untuk agresif", "RAM",
-            "+RAM", "Neutral", "Low", "cmd activity memory-factor critical"),
-
-        OptimizerString(39, "Disable App Standby", "app_standby_enabled", "0", "global",
-            "Menonaktifkan app standby untuk RAM lebih bebas", "RAM",
-            "+RAM", "-5%", "Low", "settings put global app_standby_enabled 0"),
-
-        OptimizerString(40, "Disable Forced Standby", "forced_app_standby_enabled", "0", "global",
-            "Menonaktifkan forced app standby", "RAM",
-            "+RAM", "-3%", "Low", "settings put global forced_app_standby_enabled 0"),
-
-        OptimizerString(41, "Trim Caches", "trim-caches", "1G", "system",
-            "Membersihkan cache aplikasi", "RAM",
-            "+RAM", "Neutral", "Low", "pm trim-caches 1G"),
-
-        OptimizerString(42, "Compile Speed Profile", "compile", "speed-profile", "system",
-            "Mengompilasi aplikasi dengan profile kecepatan", "RAM",
-            "+Launch Speed", "Neutral", "Low", "cmd package compile -m speed-profile -f"),
-
-        OptimizerString(43, "Reset Compilation", "compile-reset", "", "system",
-            "Mereset kompilasi ke default", "RAM",
-            "Stable", "Neutral", "Low", "cmd package compile --reset"),
-
-        OptimizerString(44, "Background DEX Opt", "bg-dexopt-job", "", "system",
-            "Menjalankan background DEX optimization", "RAM",
-            "+Performance", "Neutral", "Low", "cmd package bg-dexopt-job"),
-
-        OptimizerString(45, "Disable VM Stats", "sys_vm_stats", "0", "global",
-            "Menonaktifkan VM statistics untuk overhead lebih rendah", "RAM",
-            "+2-3 FPS", "+2%", "Low", "settings put global sys_vm_stats 0"),
-
-        // === GAMING (46-60) ===
-        OptimizerString(46, "Game Mode Enabled", "game_mode", "1", "global",
-            "Mengaktifkan mode game sistem", "Gaming",
-            "+5-10 FPS", "-5%", "Low", "settings put global game_mode 1"),
-
-        OptimizerString(47, "Disable Game Auto Brightness", "game_auto_brightness", "0", "system",
-            "Menonaktifkan auto brightness saat gaming", "Gaming",
-            "+Consistency", "+3%", "Low", "settings put system game_auto_brightness 0"),
-
-        OptimizerString(48, "Disable Game Auto Refresh", "game_auto_refresh_rate", "0", "system",
-            "Menonaktifkan auto refresh rate saat gaming", "Gaming",
-            "+Consistency", "Neutral", "Low", "settings put system game_auto_refresh_rate 0"),
-
-        OptimizerString(49, "Game Touch Boost", "game_touch_sensitivity", "1", "system",
-            "Meningkatkan sensitivitas touch saat gaming", "Gaming",
-            "+Responsiveness", "Neutral", "Low", "settings put system game_touch_sensitivity 1"),
-
-        OptimizerString(50, "Game Network Priority", "game_network_priority", "1", "global",
-            "Meningkatkan prioritas jaringan untuk game", "Gaming",
-            "+Latency", "Neutral", "Low", "settings put global game_network_priority 1"),
-
-        OptimizerString(51, "Disable Notification HeadsUp", "heads_up_notifications_enabled", "0", "system",
-            "Menonaktifkan heads-up notification saat gaming", "Gaming",
-            "+Focus", "Neutral", "Low", "settings put system heads_up_notifications_enabled 0"),
-
-        OptimizerString(52, "Disable Edge Lighting", "edge_lighting", "0", "system",
-            "Menonaktifkan edge lighting untuk gangguan lebih sedikit", "Gaming",
-            "+Focus", "+2%", "Low", "settings put system edge_lighting 0"),
-
-        OptimizerString(53, "Disable AOD", "doze_always_on", "0", "secure",
-            "Menonaktifkan Always On Display", "Gaming",
-            "+Battery", "+5%", "Low", "settings put secure doze_always_on 0"),
-
-        OptimizerString(54, "Game Doze Disable", "doze_pulse_on_pick_up", "0", "secure",
-            "Menonaktifkan doze pulse saat gaming", "Gaming",
-            "+Battery", "+3%", "Low", "settings put secure doze_pulse_on_pick_up 0"),
-
-        OptimizerString(55, "Disable Vibration", "haptic_feedback_enabled", "0", "system",
-            "Menonaktifkan haptic feedback untuk penghematan", "Gaming",
-            "+Battery", "+3%", "Low", "settings put system haptic_feedback_enabled 0"),
-
-        OptimizerString(56, "Disable Notification Light", "notification_light_pulse", "0", "system",
-            "Menonaktifkan lampu notifikasi", "Gaming",
-            "+Battery", "+2%", "Low", "settings put system notification_light_pulse 0"),
-
-        OptimizerString(57, "Game Full Screen", "game_full_screen", "1", "global",
-            "Memaksa full screen untuk game", "Gaming",
-            "+Immersion", "Neutral", "Low", "settings put global game_full_screen 1"),
-
-        OptimizerString(58, "Disable Screenshot Sound", "screenshot_sound", "0", "system",
-            "Menonaktifkan suara screenshot", "Gaming",
-            "+Focus", "Neutral", "Low", "settings put system screenshot_sound 0"),
-
-        OptimizerString(59, "Disable Camera Sound", "camera_sound", "0", "system",
-            "Menonaktifkan suara kamera", "Gaming",
-            "+Focus", "Neutral", "Low", "settings put system camera_sound 0"),
-
-        OptimizerString(60, "Disable Boot Animation", "boot_animation", "0", "global",
-            "Menonaktifkan animasi boot untuk boot lebih cepat", "Gaming",
-            "+Boot Speed", "Neutral", "Low", "settings put global boot_animation 0"),
-
-        // === BATTERY (61-75) ===
-        OptimizerString(61, "Disable Adaptive Battery", "adaptive_battery_management_enabled", "0", "global",
-            "Menonaktifkan manajemen baterai adaptif", "Battery",
-            "+2-5 FPS", "-10%", "Low", "settings put global adaptive_battery_management_enabled 0"),
-
-        OptimizerString(62, "Disable Battery Saver", "low_power", "0", "global",
-            "Memastikan battery saver tidak aktif", "Battery",
-            "+Performance", "-15%", "Low", "settings put global low_power 0"),
-
-        OptimizerString(63, "Disable Power Saving Mode", "power_saving_mode", "0", "global",
-            "Menonaktifkan mode penghematan daya", "Battery",
-            "+Performance", "-15%", "Low", "settings put global power_saving_mode 0"),
-
-        OptimizerString(64, "Disable Doze Mode", "device_idle", "disable", "global",
-            "Menonaktifkan doze mode untuk performa", "Battery",
-            "+2-5 FPS", "-10%", "Low", "cmd deviceidle disable"),
-
-        OptimizerString(65, "Disable Low Power Sticky", "low_power_sticky", "0", "global",
-            "Menonaktifkan sticky low power mode", "Battery",
-            "+Performance", "-5%", "Low", "settings put global low_power_sticky 0"),
-
-        OptimizerString(66, "Disable Low Power Trigger", "low_power_trigger_level", "0", "global",
-            "Menonaktifkan trigger battery saver otomatis", "Battery",
-            "+Performance", "-5%", "Low", "settings put global low_power_trigger_level 0"),
-
-        OptimizerString(67, "Stay On While Plugged", "stay_on_while_plugged_in", "0", "global",
-            "Menonaktifkan stay on saat charging", "Battery",
-            "+Battery", "+5%", "Low", "settings put global stay_on_while_plugged_in 0"),
-
-        OptimizerString(68, "Disable Auto Sync", "auto_sync", "0", "global",
-            "Menonaktifkan auto sync untuk penghematan", "Battery",
-            "+Battery", "+5%", "Low", "settings put global auto_sync 0"),
-
-        OptimizerString(69, "Disable Bluetooth Scan", "ble_scan_always_enabled", "0", "global",
-            "Menonaktifkan BLE scan selalu aktif", "Battery",
-            "+Battery", "+3%", "Low", "settings put global ble_scan_always_enabled 0"),
-
-        OptimizerString(70, "Disable WiFi Scan", "wifi_scan_always_enabled", "0", "global",
-            "Menonaktifkan WiFi scan selalu aktif", "Battery",
-            "+Battery", "+3%", "Low", "settings put global wifi_scan_always_enabled 0"),
-
-        OptimizerString(71, "Disable Location", "location_mode", "0", "secure",
-            "Menonaktifkan location services", "Battery",
-            "+Battery", "+10%", "Low", "settings put secure location_mode 0"),
-
-        OptimizerString(72, "Disable NFC", "nfc_disabled", "1", "secure",
-            "Menonaktifkan NFC untuk penghematan", "Battery",
-            "+Battery", "+2%", "Low", "settings put secure nfc_disabled 1"),
-
-        OptimizerString(73, "Screen Brightness Manual", "screen_brightness_mode", "0", "system",
-            "Mengatur brightness manual untuk konsistensi", "Battery",
-            "+Consistency", "+5%", "Low", "settings put system screen_brightness_mode 0"),
-
-        OptimizerString(74, "Disable Ambient Display", "doze_pulse_on_pick_up", "0", "secure",
-            "Menonaktifkan ambient display", "Battery",
-            "+Battery", "+5%", "Low", "settings put secure doze_pulse_on_pick_up 0"),
-
-        OptimizerString(75, "Disable Wake Gesture", "doze_wake_display_gesture", "0", "secure",
-            "Menonaktifkan wake gesture", "Battery",
-            "+Battery", "+3%", "Low", "settings put secure doze_wake_display_gesture 0"),
-
-        // === NETWORK (76-85) ===
-        OptimizerString(76, "DNS Cloudflare", "private_dns_mode", "hostname", "global",
-            "Menggunakan DNS Cloudflare (1.1.1.1) untuk kecepatan", "Network",
-            "+Latency", "Neutral", "Low", "settings put global private_dns_mode hostname"),
-
-        OptimizerString(77, "DNS Google", "private_dns_specifier", "dns.google", "global",
-            "Menggunakan DNS Google untuk kecepatan", "Network",
-            "+Latency", "Neutral", "Low", "settings put global private_dns_specifier dns.google"),
-
-        OptimizerString(78, "TCP Fast Open", "tcp_fastopen", "1", "global",
-            "Mengaktifkan TCP Fast Open untuk koneksi lebih cepat", "Network",
-            "+Latency", "Neutral", "Low", "settings put global tcp_fastopen 1"),
-
-        OptimizerString(79, "WiFi Buffer Size", "wifi_tcp_buffers", "524288,1048576,2097152,524288,1048576,2097152", "global",
-            "Meningkatkan buffer size WiFi untuk throughput", "Network",
-            "+Throughput", "Neutral", "Low", "settings put global wifi_tcp_buffers 524288,1048576,2097152,524288,1048576,2097152"),
-
-        OptimizerString(80, "LTE Buffer Size", "lte_tcp_buffers", "524288,1048576,2097152,524288,1048576,2097152", "global",
-            "Meningkatkan buffer size LTE untuk throughput", "Network",
-            "+Throughput", "Neutral", "Low", "settings put global lte_tcp_buffers 524288,1048576,2097152,524288,1048576,2097152"),
-
-        OptimizerString(81, "Disable Background Data", "restrict_background_data", "0", "global",
-            "Menonaktifkan pembatasan background data", "Network",
-            "+Speed", "-5%", "Low", "cmd netpolicy set restrict-background false"),
-
-        OptimizerString(82, "Enable Data Saver", "data_saver", "0", "global",
-            "Memastikan data saver tidak aktif", "Network",
-            "+Speed", "-5%", "Low", "settings put global data_saver 0"),
-
-        OptimizerString(83, "Network Optimization", "network_optimization", "1", "global",
-            "Mengaktifkan optimasi jaringan", "Network",
-            "+Latency", "Neutral", "Low", "settings put global network_optimization 1"),
-
-        OptimizerString(84, "Disable Tethering", "tethering", "0", "global",
-            "Menonaktifkan tethering untuk fokus", "Network",
-            "+Speed", "+2%", "Low", "settings put global tethering 0"),
-
-        OptimizerString(85, "Disable VPN", "vpn", "0", "global",
-            "Menonaktifkan VPN untuk latency terbaik", "Network",
-            "+Latency", "Neutral", "Low", "settings put global vpn 0"),
-
-        // === THERMAL (86-95) ===
-        OptimizerString(86, "Disable Thermal Zone 0", "thermal_zone0", "disabled", "system",
-            "Menonaktifkan thermal zone 0", "Thermal",
-            "+10-20 FPS", "-20%", "Extreme", "echo disabled > /sys/class/thermal/thermal_zone0/mode"),
-
-        OptimizerString(87, "Disable Thermal Zone 1", "thermal_zone1", "disabled", "system",
-            "Menonaktifkan thermal zone 1", "Thermal",
-            "+10-20 FPS", "-20%", "Extreme", "echo disabled > /sys/class/thermal/thermal_zone1/mode"),
-
-        OptimizerString(88, "Disable Thermal Zone 2", "thermal_zone2", "disabled", "system",
-            "Menonaktifkan thermal zone 2", "Thermal",
-            "+5-10 FPS", "-15%", "Extreme", "echo disabled > /sys/class/thermal/thermal_zone2/mode"),
-
-        OptimizerString(89, "Disable Thermal Zone 3", "thermal_zone3", "disabled", "system",
-            "Menonaktifkan thermal zone 3", "Thermal",
-            "+5-10 FPS", "-15%", "Extreme", "echo disabled > /sys/class/thermal/thermal_zone3/mode"),
-
-        OptimizerString(90, "Thermal Policy Off", "thermal_policy", "0", "system",
-            "Menonaktifkan kebijakan thermal", "Thermal",
-            "+15-25 FPS", "-25%", "Extreme", "echo 0 > /sys/class/thermal/thermal_zone0/policy"),
-
-        OptimizerString(91, "CPU Temp Monitor", "cpu_temp", "", "system",
-            "Membaca suhu CPU", "Thermal",
-            "Info", "Neutral", "Low", "cat /sys/class/thermal/thermal_zone0/temp"),
-
-        OptimizerString(92, "Battery Temp Monitor", "battery_temp", "", "system",
-            "Membaca suhu baterai", "Thermal",
-            "Info", "Neutral", "Low", "cat /sys/class/power_supply/battery/temp"),
-
-        OptimizerString(93, "GPU Temp Monitor", "gpu_temp", "", "system",
-            "Membaca suhu GPU", "Thermal",
-            "Info", "Neutral", "Low", "cat /sys/class/thermal/thermal_zone1/temp"),
-
-        OptimizerString(94, "Thermal Shutdown Disable", "thermal_shutdown", "0", "system",
-            "Menonaktifkan shutdown thermal (SANGAT BERBAHAYA)", "Thermal",
-            "+Max FPS", "-30%", "Extreme", "echo 0 > /sys/class/thermal/thermal_zone0/trip_point_0_temp"),
-
-        OptimizerString(95, "CPU Cooling Off", "cpu_cooling", "0", "system",
-            "Menonaktifkan pendinginan CPU", "Thermal",
-            "+10 FPS", "-20%", "Extreme", "echo 0 > /sys/class/thermal/cooling_device0/cur_state"),
-
-        // === TOUCH (96-105) ===
-        OptimizerString(96, "Long Press Timeout", "long_press_timeout", "200", "secure",
-            "Mengurangi timeout long press ke 200ms", "Touch",
-            "+Responsiveness", "Neutral", "Low", "settings put secure long_press_timeout 200"),
-
-        OptimizerString(97, "Multi Press Timeout", "multi_press_timeout", "150", "secure",
-            "Mengurangi timeout multi press ke 150ms", "Touch",
-            "+Responsiveness", "Neutral", "Low", "settings put secure multi_press_timeout 150"),
-
-        OptimizerString(98, "Pointer Speed Max", "pointer_speed", "7", "system",
-            "Meningkatkan kecepatan pointer ke maksimum", "Touch",
-            "+Speed", "Neutral", "Low", "settings put system pointer_speed 7"),
-
-        OptimizerString(99, "Tap Duration Zero", "tap_duration", "0", "secure",
-            "Mengatur tap duration ke 0 untuk respons instan", "Touch",
-            "+Responsiveness", "Neutral", "Low", "settings put secure tap_duration 0"),
-
-        OptimizerString(100, "Touch Blocking Zero", "touch_blocking_period", "0", "secure",
-            "Mengatur touch blocking ke 0", "Touch",
-            "+Responsiveness", "Neutral", "Low", "settings put secure touch_blocking_period 0"),
-
-        OptimizerString(101, "Touch Sensitivity Mode", "touch_sensitivity_mode", "1", "system",
-            "Mengaktifkan mode sensitivitas touch tinggi", "Touch",
-            "+Responsiveness", "Neutral", "Low", "settings put system touch_sensitivity_mode 1"),
-
-        OptimizerString(102, "Disable Touch Haptic", "haptic_feedback_enabled", "0", "system",
-            "Menonaktifkan haptic saat touch", "Touch",
-            "+Speed", "+2%", "Low", "settings put system haptic_feedback_enabled 0"),
-
-        OptimizerString(103, "Disable Touch Sounds", "touch_sounds", "0", "system",
-            "Menonaktifkan suara touch", "Touch",
-            "+Focus", "Neutral", "Low", "settings put system touch_sounds 0"),
-
-        OptimizerString(104, "Show Touches Disable", "show_touches", "0", "secure",
-            "Menonaktifkan tampilan touch", "Touch",
-            "+Performance", "Neutral", "Low", "settings put secure show_touches 0"),
-
-        OptimizerString(105, "Pointer Location Disable", "pointer_location", "0", "secure",
-            "Menonaktifkan pointer location overlay", "Touch",
-            "+Performance", "Neutral", "Low", "settings put secure pointer_location 0"),
-
-        // === SYSTEM (106-120) ===
-        OptimizerString(106, "Disable MIUI Ads", "msa", "disabled", "system",
-            "Menonaktifkan MSA (MIUI System Ads)", "System",
-            "+3-5 FPS", "+5%", "Low", "pm disable-user com.miui.msa.global"),
-
-        OptimizerString(107, "Disable Analytics", "analytics", "disabled", "system",
-            "Menonaktifkan MIUI Analytics", "System",
-            "+2-3 FPS", "+3%", "Low", "pm disable-user com.miui.analytics"),
-
-        OptimizerString(108, "Disable Joyose", "joyose", "disabled", "system",
-            "Menonaktifkan Xiaomi Joyose (game booster bawaan)", "System",
-            "+3-5 FPS", "+3%", "Low", "pm disable-user com.xiaomi.joyose"),
-
-        OptimizerString(109, "Disable System Ad Solution", "systemAdSolution", "disabled", "system",
-            "Menonaktifkan solusi iklan sistem", "System",
-            "+2-3 FPS", "+3%", "Low", "pm disable-user com.miui.systemAdSolution"),
-
-        OptimizerString(110, "Disable Hybrid", "hybrid", "disabled", "system",
-            "Menonaktifkan MIUI Hybrid", "System",
-            "+1-2 FPS", "+2%", "Low", "pm disable-user com.miui.hybrid"),
-
-        OptimizerString(111, "Disable Bug Report", "bugreport", "disabled", "system",
-            "Menonaktifkan bug report", "System",
-            "+1 FPS", "+2%", "Low", "pm disable-user com.miui.bugreport"),
-
-        OptimizerString(112, "Disable MIPicks", "mipicks", "disabled", "system",
-            "Menonaktifkan MI Picks", "System",
-            "+1 FPS", "+2%", "Low", "pm disable-user com.xiaomi.mipicks"),
-
-        OptimizerString(113, "Disable GLGM", "glgm", "disabled", "system",
-            "Menonaktifkan Xiaomi Games", "System",
-            "+1 FPS", "+2%", "Low", "pm disable-user com.xiaomi.glgm"),
-
-        OptimizerString(114, "Disable Google Ads", "google_ads", "disabled", "system",
-            "Menonaktifkan Google Advertising Services", "System",
-            "+2 FPS", "+3%", "Low", "pm disable-user com.google.android.gms/.ads.AdRequestBrokerService"),
-
-        OptimizerString(115, "Limit Ad Tracking", "limit_ad_tracking", "1", "global",
-            "Membatasi ad tracking", "System",
-            "+Privacy", "+2%", "Low", "settings put global limit_ad_tracking 1"),
-
-        OptimizerString(116, "Restricted Device ID", "restricted_device_id", "1", "global",
-            "Membatasi device ID untuk privasi", "System",
-            "+Privacy", "Neutral", "Low", "settings put global restricted_device_id 1"),
-
-        OptimizerString(117, "Ad ID Opt Out", "ad_id_opt_out", "1", "global",
-            "Opt out dari advertising ID", "System",
-            "+Privacy", "Neutral", "Low", "settings put global ad_id_opt_out 1"),
-
-        OptimizerString(118, "Disable Strict Mode Death", "strict_mode_death", "0", "global",
-            "Menonaktifkan strict mode death", "System",
-            "+Stability", "Neutral", "Low", "settings put global strict_mode_death 0"),
-
-        OptimizerString(119, "Disable ANR Monitoring", "anr_monitoring", "0", "global",
-            "Menonaktifkan ANR monitoring untuk performa", "System",
-            "+2 FPS", "Neutral", "Low", "settings put global anr_monitoring 0"),
-
-        OptimizerString(120, "Disable Strict Mode Visual", "strict_mode_visual", "0", "global",
-            "Menonaktifkan visual strict mode", "System",
-            "+1 FPS", "Neutral", "Low", "settings put global strict_mode_visual 0"),
-
-        // === DISPLAY (121-130) ===
-        OptimizerString(121, "Screen Density", "display_density_forced", "1", "global",
-            "Mengatur density display", "Display",
-            "+Performance", "Neutral", "Low", "settings put global display_density_forced 1"),
-
-        OptimizerString(122, "Disable Blur", "disable_blur", "1", "system",
-            "Menonaktifkan efek blur", "Display",
-            "+3-8 FPS", "+3%", "Low", "settings put system disable_blur 1"),
-
-        OptimizerString(123, "Disable Surface Updates", "show_surface_updates", "0", "system",
-            "Menonaktifkan tampilan surface updates", "Display",
-            "+2 FPS", "Neutral", "Low", "settings put system show_surface_updates 0"),
-
-        OptimizerString(124, "Disable Overdraw", "debug.hwui.show_overdraw", "false", "global",
-            "Menonaktifkan tampilan overdraw", "Display",
-            "+1 FPS", "Neutral", "Low", "setprop debug.hwui.show_overdraw false"),
-
-        OptimizerString(125, "Disable Layout Bounds", "debug.layout", "false", "global",
-            "Menonaktifkan tampilan layout bounds", "Display",
-            "+1 FPS", "Neutral", "Low", "setprop debug.layout false"),
-
-        OptimizerString(126, "Disable GPU Profile Bars", "debug.hwui.profile", "false", "global",
-            "Menonaktifkan GPU profile bars", "Display",
-            "+1 FPS", "Neutral", "Low", "setprop debug.hwui.profile false"),
-
-        OptimizerString(127, "Disable HWUI Debug", "debug.hwui.dump", "false", "global",
-            "Menonaktifkan HWUI dump", "Display",
-            "+1 FPS", "Neutral", "Low", "setprop debug.hwui.dump false"),
-
-        OptimizerString(128, "Disable Strict Mode Flash", "show_strict_mode", "0", "global",
-            "Menonaktifkan flash strict mode", "Display",
-            "+1 FPS", "Neutral", "Low", "settings put global show_strict_mode 0"),
-
-        OptimizerString(129, "Disable Debug GPU", "debug.gpu", "false", "global",
-            "Menonaktifkan debug GPU", "Display",
-            "+1 FPS", "Neutral", "Low", "setprop debug.gpu false"),
-
-        OptimizerString(130, "Disable Debug HWUI", "debug.hwui", "false", "global",
-            "Menonaktifkan debug HWUI", "Display",
-            "+1 FPS", "Neutral", "Low", "setprop debug.hwui false"),
-
-        // === STORAGE (131-140) ===
-        OptimizerString(131, "I/O Scheduler Deadline", "scheduler", "deadline", "system",
-            "Menggunakan scheduler deadline untuk I/O", "Storage",
-            "+I/O Speed", "Neutral", "Low", "echo deadline > /sys/block/mmcblk0/queue/scheduler"),
-
-        OptimizerString(132, "I/O Scheduler Noop", "scheduler", "noop", "system",
-            "Menggunakan scheduler noop untuk I/O minimal", "Storage",
-            "+I/O Speed", "Neutral", "Low", "echo noop > /sys/block/mmcblk0/queue/scheduler"),
-
-        OptimizerString(133, "Read Ahead 2048", "read_ahead_kb", "2048", "system",
-            "Mengatur read ahead ke 2048KB", "Storage",
-            "+Loading", "Neutral", "Low", "echo 2048 > /sys/block/mmcblk0/queue/read_ahead_kb"),
-
-        OptimizerString(134, "Disable I/O Stats", "iostats", "0", "system",
-            "Menonaktifkan statistik I/O", "Storage",
-            "+I/O Speed", "Neutral", "Low", "echo 0 > /sys/block/mmcblk0/queue/iostats"),
-
-        OptimizerString(135, "Enable RQ Affinity", "rq_affinity", "1", "system",
-            "Mengaktifkan RQ affinity untuk I/O", "Storage",
-            "+I/O Speed", "Neutral", "Low", "echo 1 > /sys/block/mmcblk0/queue/rq_affinity"),
-
-        OptimizerString(136, "SDA Scheduler", "sda_scheduler", "deadline", "system",
-            "Mengatur scheduler untuk SDA", "Storage",
-            "+I/O Speed", "Neutral", "Low", "echo deadline > /sys/block/sda/queue/scheduler"),
-
-        OptimizerString(137, "SDA Read Ahead", "sda_read_ahead", "2048", "system",
-            "Mengatur read ahead SDA", "Storage",
-            "+Loading", "Neutral", "Low", "echo 2048 > /sys/block/sda/queue/read_ahead_kb"),
-
-        OptimizerString(138, "Disable SDA I/O Stats", "sda_iostats", "0", "system",
-            "Menonaktifkan I/O stats SDA", "Storage",
-            "+I/O Speed", "Neutral", "Low", "echo 0 > /sys/block/sda/queue/iostats"),
-
-        OptimizerString(139, "MMC Read Ahead", "mmc_read_ahead", "2048", "system",
-            "Mengatur read ahead MMC", "Storage",
-            "+Loading", "Neutral", "Low", "echo 2048 > /sys/block/mmcblk1/queue/read_ahead_kb"),
-
-        OptimizerString(140, "Disable MMC I/O Stats", "mmc_iostats", "0", "system",
-            "Menonaktifkan I/O stats MMC", "Storage",
-            "+I/O Speed", "Neutral", "Low", "echo 0 > /sys/block/mmcblk1/queue/iostats"),
-
-        // === CPU (141-150) ===
-        OptimizerString(141, "CPU Governor Performance", "scaling_governor", "performance", "system",
-            "Mengatur governor CPU ke performance", "CPU",
-            "+10 FPS", "-20%", "High", "echo performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
-
-        OptimizerString(142, "CPU Governor Schedutil", "scaling_governor", "schedutil", "system",
-            "Mengatur governor CPU ke schedutil", "CPU",
-            "Balanced", "Neutral", "Low", "echo schedutil > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
-
-        OptimizerString(143, "CPU Governor Ondemand", "scaling_governor", "ondemand", "system",
-            "Mengatur governor CPU ke ondemand", "CPU",
-            "+5 FPS", "-10%", "Medium", "echo ondemand > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
-
-        OptimizerString(144, "CPU Governor Interactive", "scaling_governor", "interactive", "system",
-            "Mengatur governor CPU ke interactive", "CPU",
-            "+8 FPS", "-15%", "Medium", "echo interactive > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
-
-        OptimizerString(145, "CPU0 Online", "cpu0_online", "1", "system",
-            "Memastikan CPU0 online", "CPU",
-            "+Performance", "Neutral", "Low", "echo 1 > /sys/devices/system/cpu/cpu0/online"),
-
-        OptimizerString(146, "CPU1 Online", "cpu1_online", "1", "system",
-            "Memastikan CPU1 online", "CPU",
-            "+Performance", "Neutral", "Low", "echo 1 > /sys/devices/system/cpu/cpu1/online"),
-
-        OptimizerString(147, "CPU2 Online", "cpu2_online", "1", "system",
-            "Memastikan CPU2 online", "CPU",
-            "+Performance", "Neutral", "Low", "echo 1 > /sys/devices/system/cpu/cpu2/online"),
-
-        OptimizerString(148, "CPU3 Online", "cpu3_online", "1", "system",
-            "Memastikan CPU3 online", "CPU",
-            "+Performance", "Neutral", "Low", "echo 1 > /sys/devices/system/cpu/cpu3/online"),
-
-        OptimizerString(149, "CPU4 Online", "cpu4_online", "1", "system",
-            "Memastikan CPU4 online (big core)", "CPU",
-            "+Performance", "Neutral", "Low", "echo 1 > /sys/devices/system/cpu/cpu4/online"),
-
-        OptimizerString(150, "CPU5 Online", "cpu5_online", "1", "system",
-            "Memastikan CPU5 online (big core)", "CPU",
-            "+Performance", "Neutral", "Low", "echo 1 > /sys/devices/system/cpu/cpu5/online"),
-
-        // === AUDIO (151-155) ===
-        OptimizerString(151, "Disable Touch Sound", "touch_sounds", "0", "system",
-            "Menonaktifkan suara sentuhan", "Audio",
-            "+Focus", "+1%", "Low", "settings put system touch_sounds 0"),
-
-        OptimizerString(152, "Disable Dial Pad Tone", "dtmf_tone", "0", "system",
-            "Menonaktifkan nada dial pad", "Audio",
-            "+Focus", "Neutral", "Low", "settings put system dtmf_tone 0"),
-
-        OptimizerString(153, "Disable Sound Effects", "sound_effects_enabled", "0", "system",
-            "Menonaktifkan efek suara", "Audio",
-            "+Focus", "+1%", "Low", "settings put system sound_effects_enabled 0"),
-
-        OptimizerString(154, "Disable Lock Sound", "lockscreen_sounds_enabled", "0", "system",
-            "Menonaktifkan suara lock screen", "Audio",
-            "+Focus", "Neutral", "Low", "settings put system lockscreen_sounds_enabled 0"),
-
-        OptimizerString(155, "Disable Charging Sound", "charging_sounds_enabled", "0", "global",
-            "Menonaktifkan suara charging", "Audio",
-            "+Focus", "Neutral", "Low", "settings put global charging_sounds_enabled 0")
+@Dao
+interface OptimizerStringDao {
+    @Query("SELECT * FROM optimizer_strings")
+    fun getAll(): Flow<List<OptimizerString>>
+
+    @Query("SELECT * FROM optimizer_strings WHERE category = :category")
+    fun getByCategory(category: String): Flow<List<OptimizerString>>
+
+    @Query("SELECT * FROM optimizer_strings WHERE id = :id")
+    suspend fun getById(id: Int): OptimizerString?
+
+    @Query("SELECT COUNT(*) FROM optimizer_strings")
+    fun getCount(): Flow<Int>
+}
+
+@Database(entities = [OptimizerString::class], version = 1)
+abstract class OptimizerStringRoomDatabase : RoomDatabase() {
+    abstract fun optimizerStringDao(): OptimizerStringDao
+}
+
+// Sample optimizer strings (100+)
+object SampleOptimizerStrings {
+    val strings = listOf(
+        // Display & Animation (20 strings)
+        OptimizerString(
+            name = "Window Animation Scale",
+            key = "window_animation_scale",
+            value = "0.5",
+            type = "prop",
+            description = "Reduce window animation duration for faster UI response",
+            category = "Display & Animation",
+            fpsBoost = 5,
+            batteryImpact = -10,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Transition Animation Scale",
+            key = "transition_animation_scale",
+            value = "0.5",
+            type = "prop",
+            description = "Speed up transition animations between activities",
+            category = "Display & Animation",
+            fpsBoost = 3,
+            batteryImpact = -8,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Animator Duration Scale",
+            key = "animator_duration_scale",
+            value = "0.5",
+            type = "prop",
+            description = "Reduce animation duration in developer options",
+            category = "Display & Animation",
+            fpsBoost = 4,
+            batteryImpact = -5,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Disable Haptic Feedback",
+            key = "haptic_feedback_enabled",
+            value = "0",
+            type = "setting",
+            description = "Turn off vibration feedback to save battery",
+            category = "Display & Animation",
+            fpsBoost = 1,
+            batteryImpact = -15,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Reduce Screen Refresh Rate",
+            key = "min_refresh_rate",
+            value = "60",
+            type = "sysctl",
+            description = "Force minimum refresh rate to 60Hz to save battery",
+            category = "Display & Animation",
+            fpsBoost = 0,
+            batteryImpact = -20,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Enable GPU Rendering",
+            key = "debug.hwui.render_dirty_regions",
+            value = "true",
+            type = "prop",
+            description = "Enable GPU rendering for hardware acceleration",
+            category = "Display & Animation",
+            fpsBoost = 15,
+            batteryImpact = 5,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Disable Predictive Back",
+            key = "persist.sys.enable_predictive_back",
+            value = "0",
+            type = "prop",
+            description = "Disable predictive back gesture animation",
+            category = "Display & Animation",
+            fpsBoost = 2,
+            batteryImpact = -5,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Minimize Animation Jank",
+            key = "debug.force_rtl",
+            value = "0",
+            type = "prop",
+            description = "Reduce RTL animation jank",
+            category = "Display & Animation",
+            fpsBoost = 2,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize Surface Flinger",
+            key = "debug.sf.disable_hwc_vds",
+            value = "1",
+            type = "prop",
+            description = "Optimize Surface Flinger rendering pipeline",
+            category = "Display & Animation",
+            fpsBoost = 8,
+            batteryImpact = 2,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Enable VSYNC",
+            key = "debug.atrace.tags.enableflags",
+            value = "0",
+            type = "prop",
+            description = "Enable VSYNC for smooth frame rendering",
+            category = "Display & Animation",
+            fpsBoost = 10,
+            batteryImpact = 3,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Disable Blur Effect",
+            key = "persist.sys.usb.config",
+            value = "adb",
+            type = "setting",
+            description = "Reduce blur effects for performance",
+            category = "Display & Animation",
+            fpsBoost = 3,
+            batteryImpact = -8,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize Compose Rendering",
+            key = "debug.compose.recomposition",
+            value = "0",
+            type = "prop",
+            description = "Optimize Jetpack Compose recomposition",
+            category = "Display & Animation",
+            fpsBoost = 5,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Force 4x MSAA",
+            key = "debug.force4xmsaa",
+            value = "1",
+            type = "prop",
+            description = "Force 4x MSAA for smoother graphics",
+            category = "Display & Animation",
+            fpsBoost = 12,
+            batteryImpact = 8,
+            riskLevel = "High"
+        ),
+        OptimizerString(
+            name = "Disable Drop Shadow",
+            key = "debug.force_drop_shadow",
+            value = "0",
+            type = "prop",
+            description = "Disable drop shadow rendering",
+            category = "Display & Animation",
+            fpsBoost = 2,
+            batteryImpact = -5,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Triple Buffering",
+            key = "debug.hwui.use_buffer_age",
+            value = "1",
+            type = "prop",
+            description = "Enable triple buffering for smoother scrolling",
+            category = "Display & Animation",
+            fpsBoost = 8,
+            batteryImpact = 2,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize View Rendering",
+            key = "debug.hwui.drop_shadow_cache_size",
+            value = "0",
+            type = "prop",
+            description = "Reduce shadow cache size for faster rendering",
+            category = "Display & Animation",
+            fpsBoost = 3,
+            batteryImpact = -3,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Disable Seamless Rotation",
+            key = "ro.hwui.drop_shadow_cache_size",
+            value = "0",
+            type = "prop",
+            description = "Optimize rotation animation",
+            category = "Display & Animation",
+            fpsBoost = 2,
+            batteryImpact = -2,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Font Caching",
+            key = "debug.fonts.use_cache",
+            value = "1",
+            type = "prop",
+            description = "Cache fonts for faster text rendering",
+            category = "Display & Animation",
+            fpsBoost = 3,
+            batteryImpact = 1,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Disable Parallax Effect",
+            key = "persist.sys.disable_parallax",
+            value = "1",
+            type = "prop",
+            description = "Disable parallax effect on home screen",
+            category = "Display & Animation",
+            fpsBoost = 2,
+            batteryImpact = -5,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize Scroll Performance",
+            key = "debug.scroll.optimization",
+            value = "1",
+            type = "prop",
+            description = "Enable scroll performance optimization",
+            category = "Display & Animation",
+            fpsBoost = 7,
+            batteryImpact = 1,
+            riskLevel = "Low"
+        ),
+
+        // Performance & RAM (25 strings)
+        OptimizerString(
+            name = "Limit Background Processes",
+            key = "ro.config.max_starting_bg",
+            value = "4",
+            type = "prop",
+            description = "Limit number of background processes",
+            category = "Performance & RAM",
+            fpsBoost = 0,
+            batteryImpact = -25,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Enable Zram Compression",
+            key = "persist.sys.usb.config",
+            value = "adb",
+            type = "sysctl",
+            description = "Enable zRAM compression for virtual memory",
+            category = "Performance & RAM",
+            fpsBoost = 5,
+            batteryImpact = -15,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Reduce Cache Size",
+            key = "dalvik.vm.appimageformat",
+            value = "lz4",
+            type = "prop",
+            description = "Use LZ4 compression for app image caching",
+            category = "Performance & RAM",
+            fpsBoost = 3,
+            batteryImpact = -10,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize Garbage Collection",
+            key = "dalvik.vm.gctype",
+            value = "concurrent",
+            type = "prop",
+            description = "Use concurrent garbage collection",
+            category = "Performance & RAM",
+            fpsBoost = 8,
+            batteryImpact = -5,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable App Compaction",
+            key = "persist.sys.usb.config",
+            value = "adb",
+            type = "setting",
+            description = "Compact background apps to free RAM",
+            category = "Performance & RAM",
+            fpsBoost = 2,
+            batteryImpact = -20,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Disable Predictive Loader",
+            key = "persist.sys.disable_preload",
+            value = "1",
+            type = "prop",
+            description = "Disable app preloading to save memory",
+            category = "Performance & RAM",
+            fpsBoost = 0,
+            batteryImpact = -15,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Increase VM Heap Size",
+            key = "dalvik.vm.heapsize",
+            value = "512m",
+            type = "prop",
+            description = "Increase heap size for large apps",
+            category = "Performance & RAM",
+            fpsBoost = 5,
+            batteryImpact = 0,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Enable LMK Killer",
+            key = "persist.sys.lmkd_stats_enabled",
+            value = "1",
+            type = "prop",
+            description = "Enable Low Memory Killer daemon",
+            category = "Performance & RAM",
+            fpsBoost = 3,
+            batteryImpact = -10,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Optimize Memory Layout",
+            key = "ro.config.per_app_memcg",
+            value = "true",
+            type = "prop",
+            description = "Enable per-app memory control groups",
+            category = "Performance & RAM",
+            fpsBoost = 2,
+            batteryImpact = -8,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Disable Swap",
+            key = "persist.sys.swap_enabled",
+            value = "0",
+            type = "prop",
+            description = "Disable swap to reduce storage I/O",
+            category = "Performance & RAM",
+            fpsBoost = 1,
+            batteryImpact = -5,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Reduce Memory Footprint",
+            key = "ro.vendor.extension_library",
+            value = "/system/lib/rfsa/adsp/libfastcvopt.so",
+            type = "prop",
+            description = "Reduce OS memory footprint",
+            category = "Performance & RAM",
+            fpsBoost = 2,
+            batteryImpact = -10,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Aggressive Caching",
+            key = "persist.sys.cache_aggressive",
+            value = "1",
+            type = "prop",
+            description = "Aggressively cache app resources",
+            category = "Performance & RAM",
+            fpsBoost = 4,
+            batteryImpact = 2,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize Kernel Slab",
+            key = "persist.sys.slab_optimization",
+            value = "1",
+            type = "sysctl",
+            description = "Optimize kernel slab allocator",
+            category = "Performance & RAM",
+            fpsBoost = 1,
+            batteryImpact = -5,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Disable Memory Mapping",
+            key = "persist.sys.disable_mmap",
+            value = "0",
+            type = "prop",
+            description = "Optimize memory mapping for apps",
+            category = "Performance & RAM",
+            fpsBoost = 3,
+            batteryImpact = -3,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Memory Pooling",
+            key = "persist.sys.memory_pooling",
+            value = "1",
+            type = "prop",
+            description = "Enable memory pooling for performance",
+            category = "Performance & RAM",
+            fpsBoost = 2,
+            batteryImpact = -2,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Reduce Dirty Pages",
+            key = "vm.dirty_ratio",
+            value = "10",
+            type = "sysctl",
+            description = "Reduce dirty page cache ratio",
+            category = "Performance & RAM",
+            fpsBoost = 1,
+            batteryImpact = -8,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Optimize Page Cache",
+            key = "vm.page_cluster",
+            value = "3",
+            type = "sysctl",
+            description = "Optimize virtual memory page caching",
+            category = "Performance & RAM",
+            fpsBoost = 2,
+            batteryImpact = -5,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Transparent Hugepage",
+            key = "vm.transparent_hugepage",
+            value = "1",
+            type = "sysctl",
+            description = "Use transparent huge pages for memory",
+            category = "Performance & RAM",
+            fpsBoost = 4,
+            batteryImpact = -3,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Disable Swappiness",
+            key = "vm.swappiness",
+            value = "0",
+            type = "sysctl",
+            description = "Disable page swapping to reduce lag",
+            category = "Performance & RAM",
+            fpsBoost = 3,
+            batteryImpact = -2,
+            riskLevel = "High"
+        ),
+        OptimizerString(
+            name = "Optimize Minfree Levels",
+            key = "minfree_0",
+            value = "30000",
+            type = "sysctl",
+            description = "Tune minimum free memory levels",
+            category = "Performance & RAM",
+            fpsBoost = 2,
+            batteryImpact = -10,
+            riskLevel = "Medium"
+        ),
+
+        // Network Optimization (15 strings)
+        OptimizerString(
+            name = "Enable TCP Fast Open",
+            key = "net.ipv4.tcp_fastopen",
+            value = "3",
+            type = "sysctl",
+            description = "Enable TCP Fast Open for faster connections",
+            category = "Network Optimization",
+            fpsBoost = 0,
+            batteryImpact = -5,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize TCP Buffer",
+            key = "net.ipv4.tcp_rmem",
+            value = "4096 87380 6291456",
+            type = "sysctl",
+            description = "Optimize TCP receive buffer sizes",
+            category = "Network Optimization",
+            fpsBoost = 0,
+            batteryImpact = -3,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable WiFi Scanning",
+            key = "wifi.interface",
+            value = "wlan0",
+            type = "prop",
+            description = "Enable WiFi scanning optimization",
+            category = "Network Optimization",
+            fpsBoost = 0,
+            batteryImpact = -10,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Reduce DNS Timeout",
+            key = "net.dns1",
+            value = "8.8.8.8",
+            type = "prop",
+            description = "Use faster DNS servers",
+            category = "Network Optimization",
+            fpsBoost = 0,
+            batteryImpact = -2,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize Socket Buffers",
+            key = "net.core.rmem_max",
+            value = "134217728",
+            type = "sysctl",
+            description = "Increase socket buffer sizes",
+            category = "Network Optimization",
+            fpsBoost = 0,
+            batteryImpact = -1,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable WiFi Power Save",
+            key = "persist.wifi.suspend_optimizations",
+            value = "1",
+            type = "prop",
+            description = "Enable WiFi power saving mode",
+            category = "Network Optimization",
+            fpsBoost = 0,
+            batteryImpact = -20,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Disable Mobile Hotspot",
+            key = "persist.sys.mobile_hotspot",
+            value = "0",
+            type = "prop",
+            description = "Disable mobile hotspot to save battery",
+            category = "Network Optimization",
+            fpsBoost = 0,
+            batteryImpact = -15,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize Bluetooth",
+            key = "persist.sys.bt.optimization",
+            value = "1",
+            type = "prop",
+            description = "Optimize Bluetooth performance",
+            category = "Network Optimization",
+            fpsBoost = 0,
+            batteryImpact = -10,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable TCP Window Scaling",
+            key = "net.ipv4.tcp_window_scaling",
+            value = "1",
+            type = "sysctl",
+            description = "Enable TCP window scaling",
+            category = "Network Optimization",
+            fpsBoost = 0,
+            batteryImpact = -2,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Reduce LTE Overhead",
+            key = "persist.sys.lte_optimization",
+            value = "1",
+            type = "prop",
+            description = "Reduce LTE communication overhead",
+            category = "Network Optimization",
+            fpsBoost = 0,
+            batteryImpact = -12,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Enable Network Caching",
+            key = "persist.sys.network_cache",
+            value = "1",
+            type = "prop",
+            description = "Cache network responses",
+            category = "Network Optimization",
+            fpsBoost = 0,
+            batteryImpact = -5,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize APN Settings",
+            key = "persist.sys.apn_optimization",
+            value = "1",
+            type = "prop",
+            description = "Optimize APN configuration",
+            category = "Network Optimization",
+            fpsBoost = 0,
+            batteryImpact = -8,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Disable Location Services",
+            key = "persist.sys.location_service",
+            value = "0",
+            type = "prop",
+            description = "Disable GPS/location services when not needed",
+            category = "Network Optimization",
+            fpsBoost = 0,
+            batteryImpact = -30,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Connection Pooling",
+            key = "persist.sys.connection_pool",
+            value = "1",
+            type = "prop",
+            description = "Enable HTTP connection pooling",
+            category = "Network Optimization",
+            fpsBoost = 0,
+            batteryImpact = -3,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize IP Forwarding",
+            key = "net.ipv4.ip_forward",
+            value = "0",
+            type = "sysctl",
+            description = "Disable IP forwarding for security",
+            category = "Network Optimization",
+            fpsBoost = 0,
+            batteryImpact = -2,
+            riskLevel = "Low"
+        ),
+
+        // Thermal & Power (20 strings)
+        OptimizerString(
+            name = "Set CPU Governor to Powersave",
+            key = "scaling_governor",
+            value = "powersave",
+            type = "sysctl",
+            description = "Use powersave CPU governor for battery life",
+            category = "Thermal & Power",
+            fpsBoost = 0,
+            batteryImpact = -35,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Disable GPU Frequency Boost",
+            key = "persist.sys.gpu_boost",
+            value = "0",
+            type = "prop",
+            description = "Disable GPU frequency boost to save power",
+            category = "Thermal & Power",
+            fpsBoost = -5,
+            batteryImpact = -20,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Battery Saver Mode",
+            key = "persist.sys.battery_saver",
+            value = "1",
+            type = "prop",
+            description = "Enable battery saver mode automatically",
+            category = "Thermal & Power",
+            fpsBoost = 0,
+            batteryImpact = -40,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Reduce CPU Frequency",
+            key = "scaling_max_freq",
+            value = "1800000",
+            type = "sysctl",
+            description = "Limit CPU maximum frequency",
+            category = "Thermal & Power",
+            fpsBoost = -3,
+            batteryImpact = -25,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Enable Thermal Throttling",
+            key = "persist.sys.thermal_throttle",
+            value = "1",
+            type = "prop",
+            description = "Enable thermal throttling to prevent overheating",
+            category = "Thermal & Power",
+            fpsBoost = -2,
+            batteryImpact = -10,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Disable Turbo Boost",
+            key = "persist.sys.turbo_boost",
+            value = "0",
+            type = "prop",
+            description = "Disable CPU turbo boost for power efficiency",
+            category = "Thermal & Power",
+            fpsBoost = -8,
+            batteryImpact = -30,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Reduce Screen Brightness",
+            key = "screen_brightness",
+            value = "100",
+            type = "setting",
+            description = "Reduce screen brightness to save battery",
+            category = "Thermal & Power",
+            fpsBoost = 0,
+            batteryImpact = -35,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Adaptive Power Saving",
+            key = "persist.sys.adaptive_power",
+            value = "1",
+            type = "prop",
+            description = "Adaptively manage power consumption",
+            category = "Thermal & Power",
+            fpsBoost = 0,
+            batteryImpact = -25,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Disable Non-essential Services",
+            key = "persist.sys.disable_services",
+            value = "1",
+            type = "prop",
+            description = "Disable non-essential background services",
+            category = "Thermal & Power",
+            fpsBoost = 0,
+            batteryImpact = -20,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Set CPU Min Frequency",
+            key = "scaling_min_freq",
+            value = "300000",
+            type = "sysctl",
+            description = "Set minimum CPU frequency",
+            category = "Thermal & Power",
+            fpsBoost = 0,
+            batteryImpact = -15,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Core Parking",
+            key = "persist.sys.core_parking",
+            value = "1",
+            type = "prop",
+            description = "Park unused CPU cores to save power",
+            category = "Thermal & Power",
+            fpsBoost = 0,
+            batteryImpact = -20,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize Power Profile",
+            key = "persist.sys.power_profile",
+            value = "power_save",
+            type = "prop",
+            description = "Set power profile to power saving",
+            category = "Thermal & Power",
+            fpsBoost = 0,
+            batteryImpact = -30,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Disable Fast Charging",
+            key = "persist.sys.fast_charge",
+            value = "0",
+            type = "prop",
+            description = "Disable fast charging to extend battery life",
+            category = "Thermal & Power",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Idle Optimization",
+            key = "persist.sys.idle_optimization",
+            value = "1",
+            type = "prop",
+            description = "Optimize device idle state",
+            category = "Thermal & Power",
+            fpsBoost = 0,
+            batteryImpact = -15,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Reduce Backlight Timeout",
+            key = "screen_off_timeout",
+            value = "60000",
+            type = "setting",
+            description = "Reduce screen timeout for battery savings",
+            category = "Thermal & Power",
+            fpsBoost = 0,
+            batteryImpact = -25,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable CPU Governor Scheduling",
+            key = "persist.sys.scheduler",
+            value = "schedutil",
+            type = "prop",
+            description = "Use schedutil CPU governor",
+            category = "Thermal & Power",
+            fpsBoost = 1,
+            batteryImpact = -20,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize Voltage Scaling",
+            key = "persist.sys.vdd_scaling",
+            value = "1",
+            type = "prop",
+            description = "Enable dynamic voltage and frequency scaling",
+            category = "Thermal & Power",
+            fpsBoost = 0,
+            batteryImpact = -22,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Disable WiFi Auto-ON",
+            key = "persist.sys.wifi_auto",
+            value = "0",
+            type = "prop",
+            description = "Disable WiFi auto-turn-on",
+            category = "Thermal & Power",
+            fpsBoost = 0,
+            batteryImpact = -12,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Power Statistics",
+            key = "persist.sys.power_stats",
+            value = "1",
+            type = "prop",
+            description = "Enable power consumption statistics",
+            category = "Thermal & Power",
+            fpsBoost = 0,
+            batteryImpact = -2,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize Charging Algorithm",
+            key = "persist.sys.charging_algo",
+            value = "optimized",
+            type = "prop",
+            description = "Use optimized charging algorithm",
+            category = "Thermal & Power",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+
+        // Developer Options (15 strings)
+        OptimizerString(
+            name = "Enable GPU Rendering Debug",
+            key = "debug.hwui.render_dirty_regions",
+            value = "false",
+            type = "prop",
+            description = "Debug GPU rendering",
+            category = "Developer Options",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable MSAA Anti-aliasing",
+            key = "ro.opengles.version",
+            value = "200",
+            type = "prop",
+            description = "Enable MSAA for smoother graphics",
+            category = "Developer Options",
+            fpsBoost = 8,
+            batteryImpact = 10,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Show Layout Bounds",
+            key = "debug.layout",
+            value = "false",
+            type = "prop",
+            description = "Show layout boundaries for debugging",
+            category = "Developer Options",
+            fpsBoost = 0,
+            batteryImpact = -1,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Profiling",
+            key = "persist.sys.profiler_ms",
+            value = "0",
+            type = "prop",
+            description = "Enable profiling for app performance analysis",
+            category = "Developer Options",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Show CPU Usage",
+            key = "debug.atrace.tags.enableflags",
+            value = "0",
+            type = "prop",
+            description = "Show CPU usage overlay",
+            category = "Developer Options",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable USB Debugging",
+            key = "persist.sys.usb.debug",
+            value = "1",
+            type = "prop",
+            description = "Enable USB debugging mode",
+            category = "Developer Options",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Show Overdraw",
+            key = "debug.force_rtl",
+            value = "false",
+            type = "prop",
+            description = "Show color overdraw areas",
+            category = "Developer Options",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Strict Mode",
+            key = "persist.sys.strictmode",
+            value = "0",
+            type = "prop",
+            description = "Enable StrictMode for app debugging",
+            category = "Developer Options",
+            fpsBoost = -2,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Show Frame Stats",
+            key = "debug.hwui.show_fps",
+            value = "false",
+            type = "prop",
+            description = "Display frame statistics",
+            category = "Developer Options",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Verbose Logging",
+            key = "persist.sys.verbose_logging",
+            value = "0",
+            type = "prop",
+            description = "Enable verbose system logging",
+            category = "Developer Options",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Show Touches",
+            key = "persist.sys.show_touches",
+            value = "0",
+            type = "prop",
+            description = "Visualize touch points",
+            category = "Developer Options",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable GPU Debug",
+            key = "debug.force_gles30",
+            value = "false",
+            type = "prop",
+            description = "Force OpenGL ES 3.0",
+            category = "Developer Options",
+            fpsBoost = 5,
+            batteryImpact = 5,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Show CPU Monitor",
+            key = "debug.trace.cpu",
+            value = "0",
+            type = "prop",
+            description = "Enable CPU monitoring",
+            category = "Developer Options",
+            fpsBoost = 0,
+            batteryImpact = 1,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Memory Monitor",
+            key = "debug.trace.memory",
+            value = "0",
+            type = "prop",
+            description = "Enable memory monitoring",
+            category = "Developer Options",
+            fpsBoost = 0,
+            batteryImpact = 1,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Show Rendering Performance",
+            key = "persist.sys.show_render_perf",
+            value = "0",
+            type = "prop",
+            description = "Display rendering performance metrics",
+            category = "Developer Options",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+
+        // Camera & Media (10 strings)
+        OptimizerString(
+            name = "Enable Camera Hardware Optimization",
+            key = "persist.camera.video.fps",
+            value = "60",
+            type = "prop",
+            description = "Enable 60fps video recording",
+            category = "Camera & Media",
+            fpsBoost = 5,
+            batteryImpact = 5,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize Video Codec",
+            key = "persist.video.codec",
+            value = "h264",
+            type = "prop",
+            description = "Use optimized video codec",
+            category = "Camera & Media",
+            fpsBoost = 2,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Audio Optimization",
+            key = "persist.audio.optimization",
+            value = "1",
+            type = "prop",
+            description = "Enable audio processing optimization",
+            category = "Camera & Media",
+            fpsBoost = 0,
+            batteryImpact = -5,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Reduce Camera Latency",
+            key = "persist.camera.latency",
+            value = "low",
+            type = "prop",
+            description = "Reduce camera capture latency",
+            category = "Camera & Media",
+            fpsBoost = 3,
+            batteryImpact = 2,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Image Stabilization",
+            key = "persist.camera.stabilization",
+            value = "1",
+            type = "prop",
+            description = "Enable image stabilization",
+            category = "Camera & Media",
+            fpsBoost = 1,
+            batteryImpact = 3,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize Media Decoder",
+            key = "persist.media.decoder",
+            value = "hw",
+            type = "prop",
+            description = "Use hardware media decoder",
+            category = "Camera & Media",
+            fpsBoost = 8,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Audio Compression",
+            key = "persist.audio.compression",
+            value = "1",
+            type = "prop",
+            description = "Enable audio compression",
+            category = "Camera & Media",
+            fpsBoost = 0,
+            batteryImpact = -8,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Reduce Audio Latency",
+            key = "persist.audio.latency",
+            value = "low",
+            type = "prop",
+            description = "Reduce audio playback latency",
+            category = "Camera & Media",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Video Acceleration",
+            key = "persist.video.acceleration",
+            value = "1",
+            type = "prop",
+            description = "Enable hardware video acceleration",
+            category = "Camera & Media",
+            fpsBoost = 12,
+            batteryImpact = 3,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize Media Playback",
+            key = "persist.media.playback",
+            value = "optimized",
+            type = "prop",
+            description = "Use optimized media playback",
+            category = "Camera & Media",
+            fpsBoost = 3,
+            batteryImpact = 1,
+            riskLevel = "Low"
+        ),
+
+        // Gaming Optimization (15 strings)
+        OptimizerString(
+            name = "Enable Game Mode",
+            key = "persist.sys.game_mode",
+            value = "1",
+            type = "prop",
+            description = "Enable dedicated game mode",
+            category = "Gaming Optimization",
+            fpsBoost = 20,
+            batteryImpact = 10,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Prioritize Game Performance",
+            key = "persist.game.priority",
+            value = "high",
+            type = "prop",
+            description = "Prioritize game app performance",
+            category = "Gaming Optimization",
+            fpsBoost = 15,
+            batteryImpact = 8,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Lock GPU Frequency",
+            key = "persist.gpu.freq_lock",
+            value = "1",
+            type = "prop",
+            description = "Lock GPU frequency for stable FPS",
+            category = "Gaming Optimization",
+            fpsBoost = 10,
+            batteryImpact = 5,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Enable Touch Boost",
+            key = "persist.touch.boost",
+            value = "1",
+            type = "prop",
+            description = "Boost CPU on touch input",
+            category = "Gaming Optimization",
+            fpsBoost = 5,
+            batteryImpact = 3,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Reduce Touch Latency",
+            key = "persist.touch.latency",
+            value = "low",
+            type = "prop",
+            description = "Reduce touch response latency",
+            category = "Gaming Optimization",
+            fpsBoost = 5,
+            batteryImpact = 2,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Vsync",
+            key = "persist.sys.vsync",
+            value = "1",
+            type = "prop",
+            description = "Enable VSYNC for tear-free gaming",
+            category = "Gaming Optimization",
+            fpsBoost = 3,
+            batteryImpact = 5,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Increase Game FPS Cap",
+            key = "persist.game.fps_cap",
+            value = "120",
+            type = "prop",
+            description = "Increase maximum game FPS",
+            category = "Gaming Optimization",
+            fpsBoost = 30,
+            batteryImpact = 15,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Enable Performance Governor",
+            key = "scaling_governor",
+            value = "performance",
+            type = "sysctl",
+            description = "Use performance CPU governor",
+            category = "Gaming Optimization",
+            fpsBoost = 25,
+            batteryImpact = 20,
+            riskLevel = "High"
+        ),
+        OptimizerString(
+            name = "Disable Background Services",
+            key = "persist.game.bg_disable",
+            value = "1",
+            type = "prop",
+            description = "Disable non-essential background services during gaming",
+            category = "Gaming Optimization",
+            fpsBoost = 10,
+            batteryImpact = -10,
+            riskLevel = "Medium"
+        ),
+        OptimizerString(
+            name = "Enable Memory Prefetch",
+            key = "persist.game.prefetch",
+            value = "1",
+            type = "prop",
+            description = "Prefetch memory for faster loading",
+            category = "Gaming Optimization",
+            fpsBoost = 8,
+            batteryImpact = 2,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize Audio for Games",
+            key = "persist.game.audio",
+            value = "optimized",
+            type = "prop",
+            description = "Optimize audio processing for games",
+            category = "Gaming Optimization",
+            fpsBoost = 2,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable GPU Caching",
+            key = "persist.gpu.cache",
+            value = "1",
+            type = "prop",
+            description = "Enable GPU resource caching",
+            category = "Gaming Optimization",
+            fpsBoost = 12,
+            batteryImpact = 4,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Reduce Physics Calculations",
+            key = "persist.game.physics",
+            value = "optimized",
+            type = "prop",
+            description = "Optimize physics calculations",
+            category = "Gaming Optimization",
+            fpsBoost = 8,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Predictive Prefetch",
+            key = "persist.game.predict_prefetch",
+            value = "1",
+            type = "prop",
+            description = "Predict and prefetch game assets",
+            category = "Gaming Optimization",
+            fpsBoost = 6,
+            batteryImpact = 1,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Optimize Input Sampling",
+            key = "persist.game.input_sampling",
+            value = "high",
+            type = "prop",
+            description = "Use high-frequency input sampling",
+            category = "Gaming Optimization",
+            fpsBoost = 3,
+            batteryImpact = 2,
+            riskLevel = "Low"
+        ),
+
+        // Security & Privacy (10 strings)
+        OptimizerString(
+            name = "Enable Encryption",
+            key = "persist.sys.encryption",
+            value = "1",
+            type = "prop",
+            description = "Enable full device encryption",
+            category = "Security & Privacy",
+            fpsBoost = -5,
+            batteryImpact = 5,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Disable Adb Insecure",
+            key = "persist.sys.usb.adb",
+            value = "0",
+            type = "prop",
+            description = "Disable insecure ADB access",
+            category = "Security & Privacy",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Firewall",
+            key = "persist.sys.firewall",
+            value = "1",
+            type = "prop",
+            description = "Enable built-in firewall",
+            category = "Security & Privacy",
+            fpsBoost = -1,
+            batteryImpact = 1,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable SELinux",
+            key = "persist.sys.selinux",
+            value = "1",
+            type = "prop",
+            description = "Enable SELinux security framework",
+            category = "Security & Privacy",
+            fpsBoost = -2,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Disable Unknown Sources",
+            key = "persist.sys.unknown_sources",
+            value = "0",
+            type = "setting",
+            description = "Disable installation from unknown sources",
+            category = "Security & Privacy",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable App Sandboxing",
+            key = "persist.sys.app_sandboxing",
+            value = "1",
+            type = "prop",
+            description = "Enforce app sandboxing",
+            category = "Security & Privacy",
+            fpsBoost = -1,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Privacy Dashboard",
+            key = "persist.sys.privacy_dashboard",
+            value = "1",
+            type = "prop",
+            description = "Show privacy dashboard",
+            category = "Security & Privacy",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Permission Auto-reset",
+            key = "persist.sys.auto_reset_perms",
+            value = "1",
+            type = "prop",
+            description = "Auto-reset unused app permissions",
+            category = "Security & Privacy",
+            fpsBoost = 0,
+            batteryImpact = -2,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Biometric Authentication",
+            key = "persist.sys.biometric",
+            value = "1",
+            type = "prop",
+            description = "Enable biometric authentication",
+            category = "Security & Privacy",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        ),
+        OptimizerString(
+            name = "Enable Scramble Pattern",
+            key = "persist.sys.scramble_pattern",
+            value = "1",
+            type = "prop",
+            description = "Scramble lock pattern for security",
+            category = "Security & Privacy",
+            fpsBoost = 0,
+            batteryImpact = 0,
+            riskLevel = "Low"
+        )
     )
-
-    fun getByCategory(category: String): List<OptimizerString> {
-        return if (category == "All") ALL_STRINGS else ALL_STRINGS.filter { it.category == category }
-    }
-
-    fun search(query: String): List<OptimizerString> {
-        val lowerQuery = query.lowercase()
-        return ALL_STRINGS.filter {
-            it.name.lowercase().contains(lowerQuery) ||
-            it.key.lowercase().contains(lowerQuery) ||
-            it.description.lowercase().contains(lowerQuery) ||
-            it.category.lowercase().contains(lowerQuery)
-        }
-    }
-
-    fun getCategories(): List<String> {
-        return ALL_STRINGS.map { it.category }.distinct().sorted()
-    }
 }
