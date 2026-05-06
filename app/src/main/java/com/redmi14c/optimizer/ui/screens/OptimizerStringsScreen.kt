@@ -160,7 +160,7 @@ fun OptimizerStringsScreen(
                         color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
                         Text(
-                            text = selectedString!!.command,
+                            text = selectedString!!.command ?: "setprop ${selectedString!!.key} ${selectedString!!.value}",
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(12.dp)
@@ -351,7 +351,7 @@ fun OptimizerStringCard(
                             color = MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Text(
-                                text = string.command,
+                                text = string.command ?: "setprop ${string.key} ${string.value}",
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                                 fontSize = 11.sp,
                                 modifier = Modifier.padding(12.dp)
