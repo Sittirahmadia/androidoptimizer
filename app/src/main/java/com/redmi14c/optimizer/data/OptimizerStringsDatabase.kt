@@ -39,13 +39,13 @@ interface OptimizerStringDao {
     fun getCount(): Flow<Int>
 }
 
-@Database(entities = [OptimizerString::class], version = 1)
+@Database(entities = [OptimizerString::class], version = 1, exportSchema = false)
 abstract class OptimizerStringRoomDatabase : RoomDatabase() {
     abstract fun optimizerStringDao(): OptimizerStringDao
 }
 
 // Sample optimizer strings (100+)
-object SampleOptimizerStrings {
+object OptimizerStringsDatabase {
     val strings = listOf(
         // Display & Animation (20 strings)
         OptimizerString(
@@ -1438,4 +1438,24 @@ object SampleOptimizerStrings {
             riskLevel = "Low"
         )
     )
+
+    // Static methods for screen compatibility
+    val ALL_STRINGS: List<OptimizerString> get() = strings
+
+    fun getCategories(): List<String> {
+        return strings.map { it.category }.distinct().sorted()
+    }
+
+    fun search(query: String): List<OptimizerString> {
+        val lowerQuery = query.lowercase()
+        return strings.filter { string ->
+            string.name.lowercase().contains(lowerQuery) ||
+            string.description.lowercase().contains(lowerQuery) ||
+            string.category.lowercase().contains(lowerQuery)
+        }
+    }
+
+    fun getByCategory(category: String): List<OptimizerString> {
+        return strings.filter { it.category == category }
+    }
 }
