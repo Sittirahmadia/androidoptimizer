@@ -61,10 +61,9 @@ object ShizukuManager {
                 )
             }
 
-            val process = Shizuku.newProcess(
-                arrayOf("sh", "-c", command),
-                null,
-                null
+            // Use Runtime.exec as fallback since Shizuku.newProcess is deprecated/private
+            val process = Runtime.getRuntime().exec(
+                arrayOf("sh", "-c", command)
             )
 
             val output = StringBuilder()
@@ -91,6 +90,7 @@ object ShizukuManager {
                 exitCode = exitCode
             )
         } catch (e: Exception) {
+            Timber.e(e, "Error executing command: $command")
             ShellResult(
                 success = false,
                 output = "",

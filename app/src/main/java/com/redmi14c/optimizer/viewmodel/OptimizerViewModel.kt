@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.redmi14c.optimizer.data.*
 import com.redmi14c.optimizer.shizuku.ShizukuManager
+import com.redmi14c.optimizer.shizuku.ShellResult
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -149,7 +150,12 @@ class OptimizerViewModel(application: Application) : AndroidViewModel(applicatio
             tweakIds.forEach { id ->
                 TweakCommands.getTweakById(id)?.let { tweak ->
                     tweak.commands.forEach { cmd ->
-                        results.add(ShizukuManager.executeCommand(cmd))
+                        try {
+                            val result = ShizukuManager.executeCommand(cmd)
+                            results.add(result)
+                        } catch (e: Exception) {
+                            results.add(ShellResult(success = false, output = "", error = e.message ?: "Unknown error"))
+                        }
                     }
                 }
             }
@@ -186,7 +192,12 @@ class OptimizerViewModel(application: Application) : AndroidViewModel(applicatio
             resetIds.forEach { id ->
                 TweakCommands.getTweakById(id)?.let { tweak ->
                     tweak.resetCommands.forEach { cmd ->
-                        results.add(ShizukuManager.executeCommand(cmd))
+                        try {
+                            val result = ShizukuManager.executeCommand(cmd)
+                            results.add(result)
+                        } catch (e: Exception) {
+                            results.add(ShellResult(success = false, output = "", error = e.message ?: "Unknown error"))
+                        }
                     }
                 }
             }

@@ -828,7 +828,8 @@ fun CommandsPreviewDialog(
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
                     }
-                    items(tweak.commands) { cmd ->
+                    items(count = tweak.commands.size) { index ->
+                        val cmd = tweak.commands[index]
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
